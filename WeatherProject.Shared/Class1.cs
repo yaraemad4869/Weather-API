@@ -1,0 +1,7 @@
+﻿namespace WeatherProject.Shared
+{
+    public class Class1
+    {
+
+    }
+}
