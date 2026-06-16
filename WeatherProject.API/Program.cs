@@ -1,11 +1,12 @@
 using System;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -55,9 +56,8 @@ internal class Program
                 options.DefaultApiVersion = new ApiVersion(1, 0);
                 options.AssumeDefaultVersionWhenUnspecified = true;
                 options.ReportApiVersions = true;
-            });
-
-            builder.Services.AddVersionedApiExplorer(options =>
+            })
+            .AddApiExplorer(options => // This line is the key change
             {
                 options.GroupNameFormat = "'v'VVV";
                 options.SubstituteApiVersionInUrl = true;
@@ -71,7 +71,12 @@ internal class Program
                     Version = "v1",
                     Description = "A comprehensive weather data aggregation API"
                 });
-
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                if (File.Exists(xmlPath))
+                {
+                    options.IncludeXmlComments(xmlPath);
+                }
                 options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token",
@@ -100,7 +105,7 @@ internal class Program
 
             // Configure Database
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+                options.UseSqlServer(builder.Configuration.GetConnectionString("MonsterApi"),
                     sqlOptions =>
                     {
                         sqlOptions.EnableRetryOnFailure(5);
@@ -267,7 +272,8 @@ internal class Program
             var apiVersionDescriptionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
 
             // Configure pipeline
-            if (app.Environment.IsDevelopment())
+            var enableSwagger = app.Configuration.GetValue<bool>("SwaggerSettings:EnableSwagger", false);
+            if (app.Environment.IsDevelopment() || enableSwagger)
             {
                 app.MapOpenApi();
                 app.UseSwagger();
